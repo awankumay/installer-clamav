@@ -10,6 +10,7 @@ CLAMAV_DAEMON_SERVICE_URL="https://raw.githubusercontent.com/awankumay/installer
 CLAMAV_FRESHCLAM_SERVICE_URL="https://raw.githubusercontent.com/awankumay/installer-clamav/main/clamav-freshclam.service"
 CLAMAV_USER="clamav"
 CLAMAV_GROUP="clamav"
+SKIP_FRESHCLAM=false
 
 # Fungsi untuk menampilkan pesan error dan keluar
 error() {
@@ -22,11 +23,25 @@ if [[ $EUID -ne 0 ]]; then
   error "Skrip ini harus dijalankan sebagai root (sudo)."
 fi
 
+# Parsing parameter
+for arg in "$@"; do
+  case $arg in
+    --skip-freshclam)
+      SKIP_FRESHCLAM=true
+      ;;
+    *)
+      echo "Parameter tidak dikenal: $arg"
+      echo "Gunakan: $0 [--skip-freshclam]"
+      exit 1
+      ;;
+  esac
+done
+
 # Cek apakah ClamAV sudah terinstal
 if dpkg -l | grep -q '^ii.*clamav'; then
   INSTALLED_VERSION=$(dpkg -l | grep '^ii.*clamav' | awk '{print $3}')
   echo "ClamAV sudah terinstal dengan versi: $INSTALLED_VERSION"
-  systemctl stop clamav-daemon.service clamav-daemon.socket clamav-freshclam.service
+  systemctl stop clamav-daemon.service clamav-freshclam.service
   # Buat ulang direktori jika diperlukan
   mkdir -p /var/run/clamav
   chown clamav:clamav /var/run/clamav
@@ -83,44 +98,34 @@ echo "Memperbarui database virus..."
 /usr/local/bin/freshclam || error "Gagal memperbarui database virus."
 
 # Fungsi untuk mengaktifkan dan memulai layanan dengan konfirmasi
-confirm_service() {
+enable_and_start_service() {
   local service_name=$1
   local service_desc=$2
-  local response
 
-  while true; do
-    read -p "Aktifkan dan jalankan service $service_desc? (y/t): " response
-    case "$response" in
-      [Yy]*)
-        echo "Mengaktifkan dan memulai $service_desc..."
-        systemctl enable "$service_name" >/dev/null 2>&1 || {
-          echo "Gagal mengaktifkan $service_desc. Periksa konfigurasi layanan."
-          return 1
-        }
-        systemctl start "$service_name" >/dev/null 2>&1 || {
-          echo "Gagal memulai $service_desc. Periksa log sistem untuk detailnya."
-          return 1
-        }
-        if systemctl is-active --quiet "$service_name"; then
-          echo "$service_desc berhasil diaktifkan dan berjalan."
-        else
-          echo "$service_desc tidak berjalan. Periksa log sistem."
-        fi
-        break
-        ;;
-      [Tt]*)
-        echo "Service $service_desc tidak diaktifkan."
-        break
-        ;;
-      *)
-        echo "Input tidak valid. Harap masukkan 'y' untuk ya atau 't' untuk tidak."
-        ;;
-    esac
-  done
+  echo "Mengaktifkan dan memulai $service_desc..."
+  systemctl enable "$service_name" >/dev/null 2>&1 || {
+    echo "Gagal mengaktifkan $service_desc. Periksa konfigurasi layanan."
+    return 1
+  }
+  systemctl start "$service_name" >/dev/null 2>&1 || {
+    echo "Gagal memulai $service_desc. Periksa log sistem untuk detailnya."
+    return 1
+  }
+  if systemctl is-active --quiet "$service_name"; then
+    echo "$service_desc berhasil diaktifkan dan berjalan."
+  else
+    echo "$service_desc tidak berjalan. Periksa log sistem."
+  fi
 }
 
-# Konfirmasi untuk setiap service
-confirm_service "clamav-daemon.service" "Clamav-Daemon"
-confirm_service "clamav-freshclam.service" "Clamav-Freshclam"
+# Aktivasi Clamav-Daemon
+enable_and_start_service "clamav-daemon.service" "Clamav-Daemon"
+
+# Jika --skip-freshclam tidak diberikan, aktifkan freshclam service
+if [ "$SKIP_FRESHCLAM" = false ]; then
+  enable_and_start_service "clamav-freshclam.service" "Clamav-Freshclam"
+else
+  echo "Service Clamav-Freshclam di-skip sesuai parameter --skip-freshclam."
+fi
 
 echo "Instalasi ClamAV selesai."
