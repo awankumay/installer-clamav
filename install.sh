@@ -26,7 +26,11 @@ fi
 if dpkg -l | grep -q '^ii.*clamav'; then
   INSTALLED_VERSION=$(dpkg -l | grep '^ii.*clamav' | awk '{print $3}')
   echo "ClamAV sudah terinstal dengan versi: $INSTALLED_VERSION"
-  systemctl stop clamav-daemon.service clamav-freshclam.service
+  # systemctl stop clamav-daemon.service clamav-freshclam.service
+  # Buat ulang direktori jika diperlukan
+  mkdir -p /var/run/clamav
+  chown clamav:clamav /var/run/clamav
+  chmod 750 /var/run/clamav
   CLAMAV_INSTALLED=true
 else
   echo "ClamAV belum terinstal."
