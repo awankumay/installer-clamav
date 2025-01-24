@@ -20,8 +20,7 @@ curl -sL https://raw.githubusercontent.com/awankumay/installer-clamav/main/insta
 
 ## Skip clamav-freshclam.service
 
-curl -sL https://raw.githubusercontent.com/awankumay/installer-clamav/main/install.sh | sudo bash -s -- --skip-freshclam 
-
+curl -sL https://raw.githubusercontent.com/awankumay/installer-clamav/main/install.sh | bash -s -- --skip-freshclam 
 
 ### Note :
 
