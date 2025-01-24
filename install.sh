@@ -4,10 +4,10 @@
 VERSION="1.4.2"
 PACKAGE_URL="https://www.clamav.net/downloads/production/clamav-${VERSION}.linux.x86_64.deb"
 PACKAGE_FILE="clamav-${VERSION}.linux.x86_64.deb"
-CLAMD_CONF="./clamd.conf"
-FRESHCLAM_CONF="./freshclam.conf"
-CLAMAV_DAEMON_SERVICE="./clamav-daemon.service"
-CLAMAV_FRESHCLAM_SERVICE="./clamav-freshclam.service"
+CLAMD_CONF_URL="https://raw.githubusercontent.com/awankumay/installer-clamav/main/clamd.conf"
+FRESHCLAM_CONF_URL="https://raw.githubusercontent.com/awankumay/installer-clamav/main/freshclam.conf"
+CLAMAV_DAEMON_SERVICE_URL="https://raw.githubusercontent.com/awankumay/installer-clamav/main/clamav-daemon.service"
+CLAMAV_FRESHCLAM_SERVICE_URL="https://raw.githubusercontent.com/awankumay/installer-clamav/main/clamav-freshclam.service"
 CLAMAV_USER="clamav"
 CLAMAV_GROUP="clamav"
 
@@ -60,27 +60,29 @@ for DIR in /var/run/clamav /var/log/clamav /usr/local/share/clamav /var/lib/clam
   chown "$CLAMAV_USER:$CLAMAV_GROUP" "$DIR"
 done
 
-# Salin file konfigurasi
-echo "Menyalin file konfigurasi..."
-cp "$CLAMD_CONF" /usr/local/etc/clamd.conf
-cp "$FRESHCLAM_CONF" /usr/local/etc/freshclam.conf
-cp "$CLAMAV_DAEMON_SERVICE" /etc/systemd/system/clamav-daemon.service
-cp "$CLAMAV_FRESHCLAM_SERVICE" /etc/systemd/system/clamav-freshclam.service
+# Unduh file konfigurasi dari GitHub
+echo "Mengunduh file konfigurasi dari GitHub..."
+wget -q "$CLAMD_CONF_URL" -O /usr/local/etc/clamd.conf || error "Gagal mengunduh clamd.conf dari GitHub."
+wget -q "$FRESHCLAM_CONF_URL" -O /usr/local/etc/freshclam.conf || error "Gagal mengunduh freshclam.conf dari GitHub."
+
+# Unduh file service dari GitHub
+echo "Mengunduh file service dari GitHub..."
+wget -q "$CLAMAV_DAEMON_SERVICE_URL" -O /etc/systemd/system/clamav-daemon.service || error "Gagal mengunduh clamav-daemon.service dari GitHub."
+wget -q "$CLAMAV_FRESHCLAM_SERVICE_URL" -O /etc/systemd/system/clamav-freshclam.service || error "Gagal mengunduh clamav-freshclam.service dari GitHub."
+
+# Reload systemd daemon
+echo "Reloading systemd daemon..."
+systemctl daemon-reload
 
 # Perbarui database virus
 echo "Memperbarui database virus..."
 /usr/local/bin/freshclam || error "Gagal memperbarui database virus."
 
 # Aktifkan dan mulai service dengan konfirmasi
-if [[ "$CLAMAV_INSTALLED" == true ]]; then
-  echo "Reloading systemd daemon karena ClamAV sudah terinstal sebelumnya..."
-  systemctl daemon-reload
-fi
-
 confirm_service() {
   local service_name=$1
   local service_desc=$2
-  read -p "Untuk Service $service_desc akan diaktifkan? (y/t): " response
+  read -p "Aktifkan dan jalankan service $service_desc? (y/t): " response
   case "$response" in
     [Yy]*)
       echo "Mengaktifkan dan memulai $service_desc..."
