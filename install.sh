@@ -26,7 +26,7 @@ fi
 if dpkg -l | grep -q '^ii.*clamav'; then
   INSTALLED_VERSION=$(dpkg -l | grep '^ii.*clamav' | awk '{print $3}')
   echo "ClamAV sudah terinstal dengan versi: $INSTALLED_VERSION"
-  # systemctl stop clamav-daemon.service clamav-freshclam.service
+  systemctl stop clamav-daemon.service clamav-daemon.socket clamav-freshclam.service
   # Buat ulang direktori jika diperlukan
   mkdir -p /var/run/clamav
   chown clamav:clamav /var/run/clamav
@@ -82,25 +82,41 @@ systemctl daemon-reload
 echo "Memperbarui database virus..."
 /usr/local/bin/freshclam || error "Gagal memperbarui database virus."
 
-# Aktifkan dan mulai service dengan konfirmasi
+# Fungsi untuk mengaktifkan dan memulai layanan dengan konfirmasi
 confirm_service() {
   local service_name=$1
   local service_desc=$2
-  read -p "Aktifkan dan jalankan service $service_desc? (y/t): " response
-  case "$response" in
-    [Yy]*)
-      echo "Mengaktifkan dan memulai $service_desc..."
-      systemctl enable "$service_name"
-      systemctl start "$service_name"
-      systemctl status "$service_name"
-      ;;
-    [Tt]*)
-      echo "Service $service_desc tidak diaktifkan."
-      ;;
-    *)
-      echo "Input tidak valid. Abaikan aktivasi $service_desc."
-      ;;
-  esac
+  local response
+
+  while true; do
+    read -p "Aktifkan dan jalankan service $service_desc? (y/t): " response
+    case "$response" in
+      [Yy]*)
+        echo "Mengaktifkan dan memulai $service_desc..."
+        systemctl enable "$service_name" >/dev/null 2>&1 || {
+          echo "Gagal mengaktifkan $service_desc. Periksa konfigurasi layanan."
+          return 1
+        }
+        systemctl start "$service_name" >/dev/null 2>&1 || {
+          echo "Gagal memulai $service_desc. Periksa log sistem untuk detailnya."
+          return 1
+        }
+        if systemctl is-active --quiet "$service_name"; then
+          echo "$service_desc berhasil diaktifkan dan berjalan."
+        else
+          echo "$service_desc tidak berjalan. Periksa log sistem."
+        fi
+        break
+        ;;
+      [Tt]*)
+        echo "Service $service_desc tidak diaktifkan."
+        break
+        ;;
+      *)
+        echo "Input tidak valid. Harap masukkan 'y' untuk ya atau 't' untuk tidak."
+        ;;
+    esac
+  done
 }
 
 # Konfirmasi untuk setiap service
