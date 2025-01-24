@@ -71,16 +71,34 @@ cp "$CLAMAV_FRESHCLAM_SERVICE" /etc/systemd/system/clamav-freshclam.service
 echo "Memperbarui database virus..."
 /usr/local/bin/freshclam || error "Gagal memperbarui database virus."
 
-# Aktifkan dan mulai service
-echo "Mengaktifkan dan memulai service..."
+# Aktifkan dan mulai service dengan konfirmasi
 if [[ "$CLAMAV_INSTALLED" == true ]]; then
   echo "Reloading systemd daemon karena ClamAV sudah terinstal sebelumnya..."
   systemctl daemon-reload
 fi
 
-systemctl enable clamav-daemon.service clamav-freshclam.service
-systemctl start clamav-daemon.service clamav-freshclam.service
-echo "Silahkan melakukan check status service (systemctl status clamav-daemon.service clamav-freshclam.service)"
-# systemctl status clamav-daemon.service clamav-freshclam.service
+confirm_service() {
+  local service_name=$1
+  local service_desc=$2
+  read -p "Untuk Service $service_desc akan diaktifkan? (y/t): " response
+  case "$response" in
+    [Yy]*)
+      echo "Mengaktifkan dan memulai $service_desc..."
+      systemctl enable "$service_name"
+      systemctl start "$service_name"
+      systemctl status "$service_name"
+      ;;
+    [Tt]*)
+      echo "Service $service_desc tidak diaktifkan."
+      ;;
+    *)
+      echo "Input tidak valid. Abaikan aktivasi $service_desc."
+      ;;
+  esac
+}
+
+# Konfirmasi untuk setiap service
+confirm_service "clamav-daemon.service" "Clamav-Daemon"
+confirm_service "clamav-freshclam.service" "Clamav-Freshclam"
 
 echo "Instalasi ClamAV selesai."
