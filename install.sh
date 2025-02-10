@@ -60,6 +60,7 @@ for arg in "$@"; do
       INSTALL=true
       ;;
     --skip-freshclam)
+      INSTALL=true
       SKIP_FRESHCLAM=true
       ;;
     --help)
