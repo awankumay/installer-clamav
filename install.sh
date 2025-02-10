@@ -11,11 +11,41 @@ CLAMAV_FRESHCLAM_SERVICE_URL="https://raw.githubusercontent.com/awankumay/instal
 CLAMAV_USER="clamav"
 CLAMAV_GROUP="clamav"
 SKIP_FRESHCLAM=false
+INSTALL=false
+SHOW_STATUS=false
 
 # Fungsi untuk menampilkan pesan error dan keluar
 error() {
   echo "Error: $1" >&2
   exit 1
+}
+
+# Fungsi untuk menampilkan pesan bantuan
+show_help() {
+  echo "Usage: $0 [OPTIONS]"
+  if command -v clamscan &> /dev/null; then
+    CLAMAV_VERSION=$(clamscan --version | head -n 1)
+    echo "ClamAV Status: $CLAMAV_VERSION"
+  else
+    echo "ClamAV Status: Not installed"
+  fi
+  echo "Options:"
+  echo "  --install         Install ClamAV & Enable Service"
+  echo "  --skip-freshclam  Install ClamAV & Skip Service"
+  echo "  --help            Display this help message"
+  echo "  --status          Show Status of clamav-daemon.service & clamav-freshclam.service"
+}
+
+# Fungsi untuk menampilkan status layanan
+show_status() {
+  if command -v clamscan &> /dev/null; then
+    CLAMAV_VERSION=$(clamscan --version | head -n 1)
+    echo "ClamAV Status: $CLAMAV_VERSION"
+  else
+    echo "ClamAV Status: Not installed"
+  fi
+  echo "clamav-daemon.service: $(systemctl is-active clamav-daemon.service)"
+  echo "clamav-freshclam.service: $(systemctl is-active clamav-freshclam.service)"
 }
 
 # Pastikan skrip dijalankan sebagai root
@@ -26,16 +56,45 @@ fi
 # Parsing parameter
 for arg in "$@"; do
   case $arg in
+    --install)
+      INSTALL=true
+      ;;
     --skip-freshclam)
       SKIP_FRESHCLAM=true
       ;;
+    --help)
+      show_help
+      exit 0
+      ;;
+    --status)
+      SHOW_STATUS=true
+      ;;
     *)
       echo "Parameter tidak dikenal: $arg"
-      echo "Gunakan: $0 [--skip-freshclam]"
+      show_help
       exit 1
       ;;
   esac
 done
+
+# Jika tidak ada argumen atau hanya --help, tampilkan pesan bantuan
+if [ "$#" -eq 0 ] || [ "$SHOW_HELP" = true ]; then
+  show_help
+  exit 0
+fi
+
+# Jika --status ditentukan, tampilkan status layanan dan keluar
+if [ "$SHOW_STATUS" = true ]; then
+  show_status
+  exit 0
+fi
+
+# Jika --install tidak ditentukan, keluar dengan pesan bantuan
+if [ "$INSTALL" = false ]; then
+  echo "Pilihan --install harus ditentukan untuk melanjutkan instalasi."
+  show_help
+  exit 1
+fi
 
 # Cek apakah ClamAV sudah terinstal
 if dpkg -l | grep -q '^ii.*clamav'; then
